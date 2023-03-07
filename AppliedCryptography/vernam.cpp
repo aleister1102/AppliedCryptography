@@ -75,7 +75,7 @@ int main()
 	string p = "toanquandatquangthanh", c = "", k = "";
 	for (int i = 0; i < 20; i++)
 	{
-		k = keyGenerate(p.length());
+		k = keyGenerate(p.length()); cout << "key[" << i << "]:\t" << k << endl;
 		c = vernamEncrypt(p, k); cout << "ciphertext[" << i << "]:\t" << c << endl;
 		p = vernamEncrypt(c, k); cout << "plaintext[" << i << "]:\t" << p << endl << endl;
 	}
