@@ -37,20 +37,22 @@ int C[11] = {
 	0x36000000,
 };
 
-
-int* toFourBytes(byte s[16])
+int* toInts(byte bytes[])
 {
-	int* fourBytes = new int[4] {0};
+	int* ints = new int[4] {0};
 
 	for (int i = 0; i < 4; i++)
 	{
-		fourBytes[i] = s[4 * i] << 24 | s[4 * i + 1] << 16 | s[4 * i + 2] << 8 | s[4 * i + 3];
+		ints[i] = bytes[4 * i] << 24 |
+			bytes[4 * i + 1] << 16 |
+			bytes[4 * i + 2] << 8 |
+			bytes[4 * i + 3];
 	}
 
-	return fourBytes;
+	return ints;
 }
 
-byte* mergeBytes(int ints[4])
+byte* toBytes(int ints[4])
 {
 	byte* bytes = new byte[16]{ 0 };
 
@@ -103,14 +105,12 @@ int rotate(int n)
 	return n;
 }
 
-
-
 byte** keyExpand(byte K[])
 {
 	byte* K0 = new byte[16]{ 0 }; memcpy(K0, K, 16);
 	byte** subkeys = new byte * [10];
 
-	int* Ki = toFourBytes(K0);
+	int* Ki = toInts(K0);
 
 	for (int i = 1; i <= 10; i++)
 	{
@@ -119,7 +119,7 @@ byte** keyExpand(byte K[])
 		Ki[2] = Ki[2] ^ Ki[1];
 		Ki[3] = Ki[3] ^ Ki[2];
 
-		subkeys[i - 1] = mergeBytes(Ki);
+		subkeys[i - 1] = toBytes(Ki);
 	}
 
 	return subkeys;
@@ -136,7 +136,7 @@ int main()
 	for (int i = 0; i < 10; i++)
 	{
 		printf("k[%d]:\t", i + 1);
-		for (size_t j = 0; j < 16; j++) 
+		for (size_t j = 0; j < 16; j++)
 			printf("%02x ", subKeys[i][j]);
 		printf("\n");
 	}
