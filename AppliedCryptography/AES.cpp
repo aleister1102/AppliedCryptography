@@ -67,6 +67,11 @@ byte* toBytes(int ints[4])
 	return bytes;
 }
 
+byte sbox(byte b)
+{
+	return SBOX[b];
+}
+
 int sbox(int c)
 {
 	byte bytes[4] = { 0 }; memcpy(bytes, &c, 4);
@@ -105,12 +110,12 @@ int rotate(int n)
 	return n;
 }
 
-byte** keyExpand(byte K[])
+byte** keyExpand(byte K0[])
 {
-	byte* K0 = new byte[16]{ 0 }; memcpy(K0, K, 16);
+	byte* K = new byte[16]{ 0 }; memcpy(K, K0, 16);
 	byte** subkeys = new byte * [10];
 
-	int* Ki = toInts(K0);
+	int* Ki = toInts(K);
 
 	for (int i = 1; i <= 10; i++)
 	{
@@ -125,19 +130,134 @@ byte** keyExpand(byte K[])
 	return subkeys;
 }
 
+void addRoundKey(byte state[], byte subKey[])
+{
+	for (int i = 0; i < 16; i++)
+		state[i] ^= subKey[i];
+}
+
+void shiftRow(byte state[])
+{
+	byte temp[16] = { 0 };
+	memcpy(temp, state, 16);
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			state[4 * i + j] = temp[4 * i + (j + i) % 4];
+		}
+	}
+}
+
+// TODO
+void mixSingleColumn(byte state[], int col)
+{
+	byte ax[4][4] = {
+		{2,3,1,1},
+		{1,2,3,1},
+		{1,1,2,3},
+		{3,1,1,2}
+	};
+
+	byte newColumn[4] = { 0 };
+
+	for (int i = 0; i < 4; i++)
+	{
+		byte sum = 0;
+		for (int j = 0; j < 4; j++)
+		{
+		}
+
+		newColumn[i] = sum;
+	}
+
+	for (int i = 0; i < 4; i++)
+	{
+		state[4 * i + col] = newColumn[i];
+	}
+}
+
+void mixColumns(byte state[])
+{
+	for (int i = 0; i < 4; i++)
+	{
+		mixSingleColumn(state, i);
+	}
+}
+
 int main()
 {
-	byte k0[] = "Thats my Kung Fu";
-	printf("k[0]:\t");
-	for (size_t i = 0; i < sizeof(k0) - 1; i++) printf("%02x ", k0[i]);
+	byte S[] = "Two One Nine Two";
+	printf("M:\t");
+	for (size_t i = 0; i < sizeof(S) - 1; i++) printf("%02x ", S[i]);
 	printf("\n");
 
-	byte** subKeys = keyExpand(k0);
-	for (int i = 0; i < 10; i++)
+	byte K0[] = "Thats my Kung Fu";
+	printf("K0:\t");
+	for (size_t i = 0; i < sizeof(K0) - 1; i++) printf("%02x ", K0[i]);
+	printf("\n");
+	cout << endl;
+
+	// Key expansion
+	byte** subKeys = keyExpand(K0);
+
+	// Add round key
+	addRoundKey(S, K0);
+	printf("C0:\n");
+	for (int i = 0; i < 4; i++)
 	{
-		printf("k[%d]:\t", i + 1);
-		for (size_t j = 0; j < 16; j++)
-			printf("%02x ", subKeys[i][j]);
+		for (int j = 0; j < 4; j++)
+		{
+			printf("%02x ", S[4 * i + j]);
+		}
+		printf("\n");
+	}
+
+	// SBOX
+	for (size_t i = 0; i < 16; i++)
+	{
+		S[i] = sbox(S[i]);
+	}
+	printf("After SBOX:\n");
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			printf("%02x ", S[4 * i + j]);
+		}
+		printf("\n");
+	}
+
+	// Shift rows
+	shiftRow(S);
+	printf("After shift rows:\n");
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++)
+		{
+			printf("%02x ", S[4 * i + j]);
+		}
+		printf("\n");
+	}
+
+	// Mix columns
+	mixColumns(S);
+	printf("After mix columns:\n");
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++)
+		{
+			printf("%02x ", S[4 * i + j]);
+		}
+		printf("\n");
+	}
+
+	// Add round key
+	addRoundKey(S, subKeys[1]);
+	printf("C1:\n");
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++)
+		{
+			printf("%02x ", S[4 * i + j]);
+		}
 		printf("\n");
 	}
 
