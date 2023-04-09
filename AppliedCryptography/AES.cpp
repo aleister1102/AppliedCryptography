@@ -1,10 +1,9 @@
 #include <iostream>
-using namespace std;
 
 typedef unsigned char byte;
 
 short SBOX[256] = {
-	//0     1    2      3     4    5     6     7      8    9     A      B    C     D     E     F
+	//0		1	  2      3     4		5     6      7      8		9     A      B	  C     D      E      F
 	0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
 	0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
 	0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
@@ -136,130 +135,141 @@ void addRoundKey(byte state[], byte subKey[])
 		state[i] ^= subKey[i];
 }
 
+void subBytes(byte state[])
+{
+	for (int i = 0; i < 16; i++)
+		state[i] = sbox(state[i]);
+}
+
 void shiftRow(byte state[])
 {
 	byte temp[16] = { 0 };
 	memcpy(temp, state, 16);
-	for (int i = 0; i < 4; i++)
-	{
-		for (int j = 0; j < 4; j++)
-		{
-			state[4 * i + j] = temp[4 * i + (j + i) % 4];
-		}
-	}
+
+	temp[0] = state[0];
+	temp[1] = state[5];
+	temp[2] = state[10];
+	temp[3] = state[15];
+	temp[4] = state[4];
+	temp[5] = state[9];
+	temp[6] = state[14];
+	temp[7] = state[3];
+	temp[8] = state[8];
+	temp[9] = state[13];
+	temp[10] = state[2];
+	temp[11] = state[7];
+	temp[12] = state[12];
+	temp[13] = state[1];
+	temp[14] = state[6];
+	temp[15] = state[11];
+
+	memcpy(state, temp, 16);
 }
 
-// TODO
-void mixSingleColumn(byte state[], int col)
+// Reference:
+void mixSingleColumn(byte col[])
 {
-	byte ax[4][4] = {
-		{2,3,1,1},
-		{1,2,3,1},
-		{1,1,2,3},
-		{3,1,1,2}
-	};
+	unsigned char a[4];
+	unsigned char b[4];
+	unsigned char c;
+	unsigned char h;
 
-	byte newColumn[4] = { 0 };
+	for (c = 0; c < 4; c++) {
+		a[c] = col[c];
 
-	for (int i = 0; i < 4; i++)
-	{
-		byte sum = 0;
-		for (int j = 0; j < 4; j++)
-		{
-		}
+		h = (unsigned char)((signed char)col[c] >> 7);
 
-		newColumn[i] = sum;
+		b[c] = col[c] << 1;
+		b[c] ^= 0x1B & h;
 	}
-
-	for (int i = 0; i < 4; i++)
-	{
-		state[4 * i + col] = newColumn[i];
-	}
+	col[0] = b[0] ^ a[3] ^ a[2] ^ b[1] ^ a[1]; /* 2 * a0 + a3 + a2 + 3 * a1 */
+	col[1] = b[1] ^ a[0] ^ a[3] ^ b[2] ^ a[2]; /* 2 * a1 + a0 + a3 + 3 * a2 */
+	col[2] = b[2] ^ a[1] ^ a[0] ^ b[3] ^ a[3]; /* 2 * a2 + a1 + a0 + 3 * a3 */
+	col[3] = b[3] ^ a[2] ^ a[1] ^ b[0] ^ a[0]; /* 2 * a3 + a2 + a1 + 3 * a0 */
 }
 
 void mixColumns(byte state[])
 {
-	for (int i = 0; i < 4; i++)
+	byte* temp = new byte[4];
+
+	for (int i = 0; i < 4; ++i)
 	{
-		mixSingleColumn(state, i);
+		for (int j = 0; j < 4; ++j)
+		{
+			temp[j] = state[4 * i + j];
+		}
+
+		mixSingleColumn(temp);
+
+		for (int j = 0; j < 4; ++j)
+		{
+			state[4 * i + j] = temp[j];
+		}
+	}
+}
+
+void printBlock(byte state[])
+{
+	for (int i = 0; i < 16; i++)
+	{
+		printf("%02x ", state[i]);
+		//printf("%d ", state[i]);
+	}
+	printf("\n");
+}
+
+void encrypt(byte key[], byte message[])
+{
+	//? Key expansion: checked
+	byte** subKeys = keyExpand(key);
+	//for (int i = 0; i < 10; i++)
+	//{
+	//	printBlock(subKeys[i]);
+	//}
+
+	//? Add round key: checked
+	addRoundKey(message, key);
+	printf("C[0]:\t");
+	printBlock(message);
+
+	for (int i = 1; i <= 10; i++)
+	{
+		//? SBOX: checked
+		subBytes(message);
+		//printf("After SBOX:\n");
+		//printBlock(message);
+
+		//? Shift rows: checked
+		shiftRow(message);
+		//printf("After shift rows:\n");
+		//printBlock(message);
+
+		if (i < 10)
+		{
+			//? Mix columns : checked
+			mixColumns(message);
+			//printf("After mix columns:\n");
+			//printBlock(message);
+		}
+
+		//? Add round key
+		addRoundKey(message, subKeys[i - 1]);
+		printf("C[%d]:\t", i);
+		printBlock(message);
 	}
 }
 
 int main()
 {
-	byte S[] = "Two One Nine Two";
-	printf("M:\t");
-	for (size_t i = 0; i < sizeof(S) - 1; i++) printf("%02x ", S[i]);
-	printf("\n");
-
 	byte K0[] = "Thats my Kung Fu";
 	printf("K0:\t");
-	for (size_t i = 0; i < sizeof(K0) - 1; i++) printf("%02x ", K0[i]);
-	printf("\n");
-	cout << endl;
+	printBlock(K0);
 
-	// Key expansion
-	byte** subKeys = keyExpand(K0);
+	byte M[] = "Two One Nine Two";
+	printf("M:\t");
+	printBlock(M);
 
-	// Add round key
-	addRoundKey(S, K0);
-	printf("C0:\n");
-	for (int i = 0; i < 4; i++)
-	{
-		for (int j = 0; j < 4; j++)
-		{
-			printf("%02x ", S[4 * i + j]);
-		}
-		printf("\n");
-	}
-
-	// SBOX
-	for (size_t i = 0; i < 16; i++)
-	{
-		S[i] = sbox(S[i]);
-	}
-	printf("After SBOX:\n");
-	for (int i = 0; i < 4; i++)
-	{
-		for (int j = 0; j < 4; j++)
-		{
-			printf("%02x ", S[4 * i + j]);
-		}
-		printf("\n");
-	}
-
-	// Shift rows
-	shiftRow(S);
-	printf("After shift rows:\n");
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++)
-		{
-			printf("%02x ", S[4 * i + j]);
-		}
-		printf("\n");
-	}
-
-	// Mix columns
-	mixColumns(S);
-	printf("After mix columns:\n");
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++)
-		{
-			printf("%02x ", S[4 * i + j]);
-		}
-		printf("\n");
-	}
-
-	// Add round key
-	addRoundKey(S, subKeys[1]);
-	printf("C1:\n");
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++)
-		{
-			printf("%02x ", S[4 * i + j]);
-		}
-		printf("\n");
-	}
+	encrypt(K0, M);
 
 	return 0;
 }
