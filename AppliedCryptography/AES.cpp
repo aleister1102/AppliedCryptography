@@ -166,7 +166,7 @@ void shiftRow(byte state[])
 	memcpy(state, temp, 16);
 }
 
-// Reference:
+// Reference: https://en.wikipedia.org/wiki/Rijndael_MixColumns#Implementation_example
 void mixSingleColumn(byte col[])
 {
 	unsigned char a[4];
