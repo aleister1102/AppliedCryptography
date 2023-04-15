@@ -412,15 +412,12 @@ byte* decrypt(byte key[], byte message[])
 
 byte** parseBlocks(byte M[], int n)
 {
-	byte** blocks = new byte * [n] {0};
+	byte** blocks = new byte * [n];
 
 	for (int i = 0; i < n; i++)
 	{
-		blocks[i] = new byte[16]{ 0 };
-		for (int j = 0; j < 16; j++)
-		{
-			blocks[i][j] = M[16 * i + j];
-		}
+		blocks[i] = new byte[17]{ 0 };
+		memcpy(blocks[i], &M[16 * i], 16);
 	}
 
 	return blocks;
@@ -436,9 +433,8 @@ byte* CBCRandomEnc(byte M[], byte K[])
 	// Tách mảng đầu vào thành các blocks 16 byte
 	byte** blocks = parseBlocks(M, n);
 
-	byte* C = new byte[size];
-	byte* IV = new byte[16]{ 0 }; memset(IV, 0, 16);
-	byte* Ci = new byte[16]; memset(Ci, 0, 16);
+	byte* C = new byte[size + 1]{ 0 };
+	byte* Ci = new byte[17]{ 0 };
 	for (int i = 0; i < n; i++)
 	{
 		memcpy(Ci, encrypt(K, XOR(Ci, blocks[i])), 16);
@@ -448,25 +444,54 @@ byte* CBCRandomEnc(byte M[], byte K[])
 	return C;
 }
 
+byte* CBCRandomDec(byte C[], byte K[])
+{
+	size_t size = strlen((char*)C);
+	if (size % 16 != 0 || size == 0) return NULL;
+
+	int n = size / 16;
+
+	// Tách mảng đầu vào thành các blocks 16 byte
+	byte** blocks = parseBlocks(C, n);
+
+	byte* M = new byte[size + 1]{ 0 };
+
+	byte* Mi = new byte[17]{ 0 };
+	byte* C0 = new byte[17]{ 0 };
+	byte* Ci = new byte[17]{ 0 };
+	for (int i = 0; i < n; i++)
+	{
+		byte* C0 = Ci; Ci = blocks[i];
+		memcpy(Mi, XOR(decrypt(K, Ci), C0), 16);
+		memcpy(M + 16 * i, Mi, 16);
+	}
+
+	return M;
+}
+
 int main()
 {
 	byte K[] = "Thats my Kung Fu";
 
 	byte M[] = "Two One Nine Two";
-	printf("M:\t");
+	printf("Message:\t");
 	printBlock(M);
 
-	//byte* C = CBCRandomEnc(M, K);
+	//byte* encrypted = encrypt(K, M);
 	//printf("C:\t");
-	//printBlock(C);
+	//printBlock(encrypted);
 
-	byte* encrypted = encrypt(K, M);
-	printf("C:\t");
-	printBlock(encrypted);
+	//byte* decrypted = decrypt(K, encrypted);
+	//printf("M:\t");
+	//printBlock(decrypted);
 
-	byte* decrypted = decrypt(K, encrypted);
-	printf("M:\t");
-	printBlock(decrypted);
+	byte* E = CBCRandomEnc(M, K);
+	printf("Encrypted:\t");
+	printBlock(E);
+
+	byte* D = CBCRandomDec(E, K);
+	printf("Decrypted:\t");
+	printBlock(D);
 
 	return 0;
 }
