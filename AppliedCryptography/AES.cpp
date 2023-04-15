@@ -329,7 +329,6 @@ byte* CBCRandomEnc(byte* M, byte* K)
 
 	int n = size / BLOCK_SIZE;
 
-	// Tách thông điêp ra làm nhiều khối 16 bytes
 	byte** blocks = parseBlocks(M, n);
 
 	byte* C = new byte[size + 1]{ 0 };
