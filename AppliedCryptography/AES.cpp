@@ -1,10 +1,11 @@
 ﻿#include <iostream>
+
 #define BLOCK_SIZE 16
 #define ROUNDS 10
+
 typedef unsigned char byte;
 
-
-short SBOX[256] = {
+byte SBOX[256] = {
 	0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
 	0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
 	0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
@@ -23,7 +24,7 @@ short SBOX[256] = {
 	0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
 };
 
-short INV_SBOX[256] = {
+byte INV_SBOX[256] = {
 	0x52, 0x09, 0x6A, 0xD5, 0x30, 0x36, 0xA5, 0x38, 0xBF, 0x40, 0xA3, 0x9E, 0x81, 0xF3, 0xD7, 0xFB,
 	0x7C, 0xE3, 0x39, 0x82, 0x9B, 0x2F, 0xFF, 0x87, 0x34, 0x8E, 0x43, 0x44, 0xC4, 0xDE, 0xE9, 0xCB,
 	0x54, 0x7B, 0x94, 0x32, 0xA6, 0xC2, 0x23, 0x3D, 0xEE, 0x4C, 0x95, 0x0B, 0x42, 0xFA, 0xC3, 0x4E,
@@ -42,8 +43,22 @@ short INV_SBOX[256] = {
 	0x17, 0x2B, 0x04, 0x7E, 0xBA, 0x77, 0xD6, 0x26, 0xE1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0C, 0x7D,
 };
 
-short SHIFT_ROW_PERMUTATION[16] = { 0, 5, 10, 15, 4, 9, 14, 3, 8, 13, 2, 7, 12, 1, 6, 11 };
-short INV_SHIFT_ROW_PERMUTATION[16] = { 0, 13, 10, 7, 4, 1, 14, 11, 8, 5, 2, 15, 12, 9, 6, 3 };
+byte ROW_PERMUTATION[16] = { 0, 5, 10, 15, 4, 9, 14, 3, 8, 13, 2, 7, 12, 1, 6, 11 };
+byte INV_ROW_PERMUTATION[16] = { 0, 13, 10, 7, 4, 1, 14, 11, 8, 5, 2, 15, 12, 9, 6, 3 };
+
+byte AX[4][4] = {
+	{0x2, 0x3, 0x1, 0x1},
+	{0x1, 0x2, 0x3, 0x1},
+	{0x1, 0x1, 0x2, 0x3},
+	{0x3, 0x1, 0x1, 0x2}
+};
+
+byte INV_AX[4][4] = {
+	{0xe, 0xb, 0xd, 0x9},
+	{0x9, 0xe, 0xb, 0xd},
+	{0xd, 0x9, 0xe, 0xb},
+	{0xb, 0xd, 0x9, 0xe}
+};
 
 int RC[11] = {
 	0x00000000,
@@ -129,7 +144,7 @@ void printBlock(byte* state)
 }
 
 
-int sbox(int c, short box[])
+int sbox(int c, byte* box)
 {
 	byte temp[4]{ 0 }; memcpy(temp, &c, 4);
 
@@ -178,13 +193,13 @@ void addRoundKey(byte* state, byte* subKey)
 		state[i] ^= subKey[i];
 }
 
-void subBytes(byte* state, short* box)
+void subBytes(byte* state, byte* box)
 {
 	for (int i = 0; i < BLOCK_SIZE; i++)
 		state[i] = box[state[i]];
 }
 
-void shiftRow(byte* state, short* permutation)
+void shiftRow(byte* state, byte* permutation)
 {
 	byte temp[BLOCK_SIZE + 1]{ 0 }; memcpy(temp, state, BLOCK_SIZE);
 
@@ -194,37 +209,52 @@ void shiftRow(byte* state, short* permutation)
 	memcpy(state, temp, BLOCK_SIZE);
 }
 
-//! Reference: https://en.wikipedia.org/wiki/Rijndael_MixColumns#Implementation_example
-void mixSingleColumn(byte* col)
+//! Reference: https://www.samiam.org/galois.html
+byte gmul(byte a, byte b)
 {
-	byte a[4] = { 0 };
-	byte b[4] = { 0 };
-	byte c, h;
+	byte product = 0;
 
-	for (c = 0; c < 4; c++) {
-		a[c] = col[c];
-
-		h = (byte)((signed char)col[c] >> 7);
-
-		b[c] = col[c] << 1;
-		b[c] ^= 0x1B & h;
+	for (int i = 0; i < 8; i++) {
+		if ((b & 1) == 1)
+			product ^= a;
+		byte hi_bit_set = (a & 0x80);
+		a <<= 1;
+		if (hi_bit_set == 0x80)
+			a ^= 0x1b;
+		b >>= 1;
 	}
-	col[0] = b[0] ^ a[3] ^ a[2] ^ b[1] ^ a[1]; /* 2 * a0 + a3 + a2 + 3 * a1 */
-	col[1] = b[1] ^ a[0] ^ a[3] ^ b[2] ^ a[2]; /* 2 * a1 + a0 + a3 + 3 * a2 */
-	col[2] = b[2] ^ a[1] ^ a[0] ^ b[3] ^ a[3]; /* 2 * a2 + a1 + a0 + 3 * a3 */
-	col[3] = b[3] ^ a[2] ^ a[1] ^ b[0] ^ a[0]; /* 2 * a3 + a2 + a1 + 3 * a0 */
+	return product;
 }
 
-void mixColumns(byte* state, void (*mixColFuncPtr)(byte* col))
+//! Reference: https://www.samiam.org/mix-column.html
+void mixSingleColumn(byte* col, byte matrix[4][4])
 {
-	byte temp[4] = { 0 };
+	byte temp[4]{ 0 };
+
+	for (int i = 0; i < 4; i++)
+	{
+		temp[i] = col[i];
+		col[i] = 0;
+	}
+
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++)
+		{
+			col[i] ^= gmul(temp[j], matrix[i][j]);
+		}
+	}
+}
+
+void mixColumns(byte* state, byte matrix[4][4])
+{
+	byte temp[4]{ 0 };
 
 	for (int i = 0; i < 4; ++i)
 	{
 		for (int j = 0; j < 4; ++j)
 			temp[j] = state[4 * i + j];
 
-		mixColFuncPtr(temp);
+		mixSingleColumn(temp, matrix);
 
 		for (int j = 0; j < 4; ++j)
 			state[4 * i + j] = temp[j];
@@ -240,50 +270,15 @@ byte* encrypt(byte* key, byte* message)
 	for (int i = 1; i <= ROUNDS; i++)
 	{
 		subBytes(message, SBOX);
-		shiftRow(message, SHIFT_ROW_PERMUTATION);
+		shiftRow(message, ROW_PERMUTATION);
 
 		if (i < ROUNDS)
-			mixColumns(message, mixSingleColumn);
+			mixColumns(message, AX);
 
 		addRoundKey(message, subKeys[i - 1]);
 	}
 
 	return message;
-}
-
-
-//! Reference: https://www.samiam.org/mix-column.html
-byte gmul(byte a, byte b) {
-	byte p = 0;
-	byte counter;
-	byte hi_bit_set;
-
-	for (counter = 0; counter < 8; counter++) {
-		if ((b & 1) == 1)
-			p ^= a;
-		hi_bit_set = (a & 0x80);
-		a <<= 1;
-		if (hi_bit_set == 0x80)
-			a ^= 0x1b;
-		b >>= 1;
-	}
-	return p;
-}
-
-void invMixSingleColumn(byte* col)
-{
-	byte a[4]{ 0 };
-	byte c;
-
-	for (c = 0; c < 4; c++)
-	{
-		a[c] = col[c];
-	}
-
-	col[0] = gmul(a[0], 14) ^ gmul(a[3], 9) ^ gmul(a[2], 13) ^ gmul(a[1], 11);
-	col[1] = gmul(a[1], 14) ^ gmul(a[0], 9) ^ gmul(a[3], 13) ^ gmul(a[2], 11);
-	col[2] = gmul(a[2], 14) ^ gmul(a[1], 9) ^ gmul(a[0], 13) ^ gmul(a[3], 11);
-	col[3] = gmul(a[3], 14) ^ gmul(a[2], 9) ^ gmul(a[1], 13) ^ gmul(a[0], 11);
 }
 
 byte* decrypt(byte* key, byte* message)
@@ -294,13 +289,13 @@ byte* decrypt(byte* key, byte* message)
 
 	for (int i = ROUNDS - 1; i >= 0; i--)
 	{
-		shiftRow(message, INV_SHIFT_ROW_PERMUTATION);
+		shiftRow(message, INV_ROW_PERMUTATION);
 		subBytes(message, INV_SBOX);
 
 		if (i > 0)
 		{
 			addRoundKey(message, subKeys[i - 1]);
-			mixColumns(message, invMixSingleColumn);
+			mixColumns(message, INV_AX);
 		}
 	}
 
