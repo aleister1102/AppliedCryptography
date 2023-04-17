@@ -174,7 +174,7 @@ byte** keyExpand(const byte* K)
 	return subkeys;
 }
 
-byte* XOR(byte* a, byte* b)
+byte* XOR(const byte* a, const byte* b)
 {
 	byte* res = new byte[BLOCK_SIZE + 1]{ 0 };
 
@@ -262,13 +262,17 @@ void mixSingleColumn(byte* col, byte matrix[4][4])
 byte* mixColumns(const byte* state, byte matrix[4][4])
 {
 	byte* res = cloneState(state);
+	byte col[5]{ 0 };
 
 	for (int i = 0; i < 4; ++i)
 	{
 		for (int j = 0; j < 4; ++j)
-			res[j] = state[4 * i + j];
+			col[j] = res[4 * i + j];
 
-		mixSingleColumn(res, matrix);
+		mixSingleColumn(col, matrix);
+
+		for (int j = 0; j < 4; j++)
+			res[4 * i + j] = col[j];
 	}
 
 	return res;
@@ -279,26 +283,17 @@ byte* encrypt(byte* message, const byte* key)
 	byte** subKeys = keyExpand(key);
 	byte* encrypted = cloneState(message);
 
-	encrypted = addRoundKey(message, key);
+	encrypted = addRoundKey(encrypted, key);
 
 	for (int i = 1; i <= ROUNDS; i++)
 	{
-		encrypted = subBytes(message, SBOX);
-		printf("After sub bytes:\t");
-		printBlock(encrypted);
-
-		encrypted = shiftRows(message, ROW_PERMUTATION);
-		printf("After shift rows:\t");
-		printBlock(encrypted);
+		encrypted = subBytes(encrypted, SBOX);
+		encrypted = shiftRows(encrypted, ROW_PERMUTATION);
 
 		if (i < ROUNDS)
-			encrypted = mixColumns(message, AX);
-			printf("After mix columns:\t");
-			printBlock(encrypted);
+			encrypted = mixColumns(encrypted, AX);
 
-		encrypted = addRoundKey(message, subKeys[i - 1]);
-		printf("C[%d]:\t\t", i);
-		printBlock(encrypted);
+		encrypted = addRoundKey(encrypted, subKeys[i - 1]);
 	}
 
 	return encrypted;
@@ -309,21 +304,21 @@ byte* decrypt(byte* message, const byte* key)
 	byte** subKeys = keyExpand(key);
 	byte* decrypted = cloneState(message);
 
-	decrypted = addRoundKey(message, subKeys[ROUNDS - 1]);
+	decrypted = addRoundKey(decrypted, subKeys[ROUNDS - 1]);
 
 	for (int i = ROUNDS - 1; i >= 0; i--)
 	{
-		decrypted = shiftRows(message, INV_ROW_PERMUTATION);
-		decrypted = subBytes(message, INV_SBOX);
+		decrypted = shiftRows(decrypted, INV_ROW_PERMUTATION);
+		decrypted = subBytes(decrypted, INV_SBOX);
 
 		if (i > 0)
 		{
-			decrypted = addRoundKey(message, subKeys[i - 1]);
-			decrypted = mixColumns(message, INV_AX);
+			decrypted = addRoundKey(decrypted, subKeys[i - 1]);
+			decrypted = mixColumns(decrypted, INV_AX);
 		}
 	}
 
-	decrypted = addRoundKey(message, key);
+	decrypted = addRoundKey(decrypted, key);
 
 	return decrypted;
 }
@@ -354,8 +349,9 @@ byte* CBCEncrypt(byte* M, byte* K)
 	byte* Ci = new byte[BLOCK_SIZE + 1]{ 0 };
 	for (int i = 0; i < n; i++)
 	{
-		byte* Mi = blocks[i];
-		memcpy(Ci, encrypt(K, XOR(Ci, Mi)), BLOCK_SIZE);
+		byte* Pi = blocks[i];
+		
+		Ci = encrypt(XOR(Ci, Pi), K);
 		memcpy(C + BLOCK_SIZE * i, Ci, BLOCK_SIZE);
 	}
 
@@ -371,19 +367,14 @@ byte* CBCDecrypt(byte* C, byte* K)
 
 	byte** blocks = parseBlocks(C, n);
 
-	printf("Cipher blocks: \n");
-	for (int i = 0; i < n; i++)
-	{
-		printBlock(blocks[i]);
-	}
-
 	byte* M = new byte[size + 2]{ 0 };
 	byte* Mi = new byte[BLOCK_SIZE + 1]{ 0 };
 	byte* Ci = new byte[BLOCK_SIZE + 1]{ 0 };
 	for (int i = 0; i < n; i++)
 	{
 		byte* prevCi = Ci; Ci = blocks[i];
-		memcpy(Mi, XOR(decrypt(K, Ci), prevCi), BLOCK_SIZE);
+
+		Mi = XOR(decrypt(Ci, K), prevCi);
 		memcpy(M + BLOCK_SIZE * i, Mi, BLOCK_SIZE);
 	}
 
@@ -392,7 +383,7 @@ byte* CBCDecrypt(byte* C, byte* K)
 
 int main()
 {
-	byte M[] = "Two One Nine Two";
+	byte M[] = "Two One Nine TwoTwo One Nine Two";
 	printf("Message:\t");
 	printBlock(M);
 
@@ -400,17 +391,21 @@ int main()
 	printf("Key: \t\t");
 	printBlock(K);
 
-	//byte* E = CBCEncrypt(M, K);
+	//byte* E = encrypt(M, K);
 	//printf("Encrypted:\t");
 	//printBlock(E);
 
-	//byte* D = CBCDecrypt(E, K);
+	//byte* D = decrypt(E, K);
 	//printf("Decrypted:\t");
 	//printBlock(D);
 
-	byte* E = encrypt(M, K);
+	byte* E = CBCEncrypt(M, K);
 	printf("Encrypted:\t");
 	printBlock(E);
+
+	byte* D = CBCDecrypt(E, K);
+	printf("Decrypted:\t");
+	printBlock(D);
 
 
 	return 0;
