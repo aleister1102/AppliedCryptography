@@ -367,18 +367,18 @@ byte* CBCDecrypt(byte* C, byte* K)
 
 	byte** blocks = parseBlocks(C, n);
 
-	byte* M = new byte[size + 2]{ 0 };
-	byte* Mi = new byte[BLOCK_SIZE + 1]{ 0 };
+	byte* P = new byte[size + 1]{ 0 };
+	byte* Pi = new byte[BLOCK_SIZE + 1]{ 0 };
 	byte* Ci = new byte[BLOCK_SIZE + 1]{ 0 };
 	for (int i = 0; i < n; i++)
 	{
 		byte* prevCi = Ci; Ci = blocks[i];
 
-		Mi = XOR(decrypt(Ci, K), prevCi);
-		memcpy(M + BLOCK_SIZE * i, Mi, BLOCK_SIZE);
+		Pi = XOR(decrypt(Ci, K), prevCi);
+		memcpy(P + BLOCK_SIZE * i, Pi, BLOCK_SIZE);
 	}
 
-	return M;
+	return P;
 }
 
 int main()
