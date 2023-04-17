@@ -1,7 +1,7 @@
 ﻿#include <iostream>
 
-#define BLOCK_SIZE 16
-#define ROUNDS 10
+constexpr auto BLOCK_SIZE = 16;
+constexpr auto ROUNDS = 10;
 
 typedef unsigned char byte;
 
@@ -100,7 +100,7 @@ int rotate(int n, int val)
 	return n;
 }
 
-int* bytesToFourInts(byte* bytes)
+int* bytesToFourInts(const byte* bytes)
 {
 	int* ints = new int[4] {0};
 
@@ -156,7 +156,7 @@ int sbox(int c, byte* box)
 	return res;
 }
 
-byte** keyExpand(byte* K)
+byte** keyExpand(const byte* K)
 {
 	byte** subkeys = new byte * [10] { 0 };
 
@@ -174,7 +174,7 @@ byte** keyExpand(byte* K)
 	return subkeys;
 }
 
-byte* XOR(byte* a, byte* b)
+byte* XOR(const byte* a, const byte* b)
 {
 	byte* res = new byte[BLOCK_SIZE + 1]{ 0 };
 
@@ -187,29 +187,43 @@ byte* XOR(byte* a, byte* b)
 	return res;
 }
 
-void addRoundKey(byte* state, byte* subKey)
+byte* cloneState(const byte* block)
 {
-	for (int i = 0; i < BLOCK_SIZE; i++)
-		state[i] ^= subKey[i];
+	byte* clone = new byte[BLOCK_SIZE + 1]{ 0 };
+	memcpy(clone, block, BLOCK_SIZE);
+	return clone;
 }
 
-void subBytes(byte* state, byte* box)
+byte* addRoundKey(const byte* state, const byte* subKey)
 {
-	for (int i = 0; i < BLOCK_SIZE; i++)
-		state[i] = box[state[i]];
-}
-
-void shiftRow(byte* state, byte* permutation)
-{
-	byte temp[BLOCK_SIZE + 1]{ 0 }; memcpy(temp, state, BLOCK_SIZE);
+	byte* res = cloneState(state);
 
 	for (int i = 0; i < BLOCK_SIZE; i++)
-		temp[i] = state[permutation[i]];
+		res[i] ^= subKey[i];
 
-	memcpy(state, temp, BLOCK_SIZE);
+	return res;
 }
 
-//! Reference: https://www.samiam.org/galois.html
+byte* subBytes(const byte* state, byte* box)
+{
+	byte* res = cloneState(state);
+
+	for (int i = 0; i < BLOCK_SIZE; i++)
+		res[i] = box[state[i]];
+
+	return res;
+}
+
+byte* shiftRows(const byte* state, byte* permutation)
+{
+	byte* res = cloneState(state);
+
+	for (int i = 0; i < BLOCK_SIZE; i++)
+		res[i] = state[permutation[i]];
+
+	return res;
+}
+
 byte gmul(byte a, byte b)
 {
 	byte product = 0;
@@ -223,10 +237,10 @@ byte gmul(byte a, byte b)
 			a ^= 0x1b;
 		b >>= 1;
 	}
+
 	return product;
 }
 
-//! Reference: https://www.samiam.org/mix-column.html
 void mixSingleColumn(byte* col, byte matrix[4][4])
 {
 	byte temp[4]{ 0 };
@@ -245,70 +259,75 @@ void mixSingleColumn(byte* col, byte matrix[4][4])
 	}
 }
 
-void mixColumns(byte* state, byte matrix[4][4])
+byte* mixColumns(const byte* state, byte matrix[4][4])
 {
-	byte temp[4]{ 0 };
+	byte* res = cloneState(state);
+	byte col[5]{ 0 };
 
 	for (int i = 0; i < 4; ++i)
 	{
 		for (int j = 0; j < 4; ++j)
-			temp[j] = state[4 * i + j];
+			col[j] = res[4 * i + j];
 
-		mixSingleColumn(temp, matrix);
+		mixSingleColumn(col, matrix);
 
-		for (int j = 0; j < 4; ++j)
-			state[4 * i + j] = temp[j];
+		for (int j = 0; j < 4; j++)
+			res[4 * i + j] = col[j];
 	}
+
+	return res;
 }
 
-byte* encrypt(byte* key, byte* message)
+byte* encrypt(byte* message, const byte* key)
 {
 	byte** subKeys = keyExpand(key);
+	byte* encrypted = cloneState(message);
 
-	addRoundKey(message, key);
+	encrypted = addRoundKey(encrypted, key);
 
 	for (int i = 1; i <= ROUNDS; i++)
 	{
-		subBytes(message, SBOX);
-		shiftRow(message, ROW_PERMUTATION);
+		encrypted = subBytes(encrypted, SBOX);
+		encrypted = shiftRows(encrypted, ROW_PERMUTATION);
 
 		if (i < ROUNDS)
-			mixColumns(message, AX);
+			encrypted = mixColumns(encrypted, AX);
 
-		addRoundKey(message, subKeys[i - 1]);
+		encrypted = addRoundKey(encrypted, subKeys[i - 1]);
 	}
 
-	return message;
+	return encrypted;
 }
 
-byte* decrypt(byte* key, byte* message)
+byte* decrypt(byte* message, const byte* key)
 {
 	byte** subKeys = keyExpand(key);
+	byte* decrypted = cloneState(message);
 
-	addRoundKey(message, subKeys[ROUNDS - 1]);
+	decrypted = addRoundKey(decrypted, subKeys[ROUNDS - 1]);
 
 	for (int i = ROUNDS - 1; i >= 0; i--)
 	{
-		shiftRow(message, INV_ROW_PERMUTATION);
-		subBytes(message, INV_SBOX);
+		decrypted = shiftRows(decrypted, INV_ROW_PERMUTATION);
+		decrypted = subBytes(decrypted, INV_SBOX);
 
 		if (i > 0)
 		{
-			addRoundKey(message, subKeys[i - 1]);
-			mixColumns(message, INV_AX);
+			decrypted = addRoundKey(decrypted, subKeys[i - 1]);
+			decrypted = mixColumns(decrypted, INV_AX);
 		}
 	}
 
-	addRoundKey(message, key);
+	decrypted = addRoundKey(decrypted, key);
 
-	return message;
+	return decrypted;
 }
 
-byte** parseBlocks(byte* M, int n)
+byte** parseBlocks(const byte* M, int n)
 {
 	byte** blocks = new byte * [n];
 
-	for (int i = 0; i < n; i++)
+	for (int i = n - 1; i >= 0; i--)
 	{
 		blocks[i] = new byte[BLOCK_SIZE + 1]{ 0 };
 		memcpy(blocks[i], &M[BLOCK_SIZE * i], BLOCK_SIZE);
@@ -317,7 +336,7 @@ byte** parseBlocks(byte* M, int n)
 	return blocks;
 }
 
-byte* CBCRandomEnc(byte* M, byte* K)
+byte* CBCEncrypt(byte* M, byte* K)
 {
 	size_t size = strlen((char*)M);
 	if (size % BLOCK_SIZE != 0 || size == 0) return NULL;
@@ -330,15 +349,16 @@ byte* CBCRandomEnc(byte* M, byte* K)
 	byte* Ci = new byte[BLOCK_SIZE + 1]{ 0 };
 	for (int i = 0; i < n; i++)
 	{
-		byte* Mi = blocks[i];
-		memcpy(Ci, encrypt(K, XOR(Ci, Mi)), BLOCK_SIZE);
+		byte* Pi = blocks[i];
+		
+		Ci = encrypt(XOR(Ci, Pi), K);
 		memcpy(C + BLOCK_SIZE * i, Ci, BLOCK_SIZE);
 	}
 
 	return C;
 }
 
-byte* CBCRandomDec(byte* C, byte* K)
+byte* CBCDecrypt(byte* C, byte* K)
 {
 	size_t size = strlen((char*)C);
 	if (size % BLOCK_SIZE != 0 || size == 0) return NULL;
@@ -347,13 +367,14 @@ byte* CBCRandomDec(byte* C, byte* K)
 
 	byte** blocks = parseBlocks(C, n);
 
-	byte* M = new byte[size + 1]{ 0 };
+	byte* M = new byte[size + 2]{ 0 };
 	byte* Mi = new byte[BLOCK_SIZE + 1]{ 0 };
 	byte* Ci = new byte[BLOCK_SIZE + 1]{ 0 };
 	for (int i = 0; i < n; i++)
 	{
 		byte* prevCi = Ci; Ci = blocks[i];
-		memcpy(Mi, XOR(decrypt(K, Ci), prevCi), BLOCK_SIZE);
+
+		Mi = XOR(decrypt(Ci, K), prevCi);
 		memcpy(M + BLOCK_SIZE * i, Mi, BLOCK_SIZE);
 	}
 
@@ -362,27 +383,30 @@ byte* CBCRandomDec(byte* C, byte* K)
 
 int main()
 {
-	byte K[] = "Thats my Kung Fu";
-
-	byte M[] = "Two One Nine Two";
+	byte M[] = "Two One Nine TwoTwo One Nine Two";
 	printf("Message:\t");
 	printBlock(M);
 
-	//byte* encrypted = encrypt(K, M);
-	//printf("C:\t");
-	//printBlock(encrypted);
+	byte K[] = "Thats my Kung Fu";
+	printf("Key: \t\t");
+	printBlock(K);
 
-	//byte* decrypted = decrypt(K, encrypted);
-	//printf("M:\t");
-	//printBlock(decrypted);
+	//byte* E = encrypt(M, K);
+	//printf("Encrypted:\t");
+	//printBlock(E);
 
-	byte* E = CBCRandomEnc(M, K);
+	//byte* D = decrypt(E, K);
+	//printf("Decrypted:\t");
+	//printBlock(D);
+
+	byte* E = CBCEncrypt(M, K);
 	printf("Encrypted:\t");
 	printBlock(E);
 
-	byte* D = CBCRandomDec(E, K);
+	byte* D = CBCDecrypt(E, K);
 	printf("Decrypted:\t");
 	printBlock(D);
+
 
 	return 0;
 }
