@@ -4,13 +4,15 @@ using namespace std;
 
 unsigned int powMod(unsigned int a, unsigned int b, unsigned int n) {
 	unsigned int result = 1;
-	for (int i = 0; i < b; i++)
-	{
-		result = (result * a) % n;
+	while (b > 0) {
+		if (b & 1) {
+			result = (result * a) % n;
+		}
+		b >>= 1;
+		a = (a * a) % n;
 	}
 	return result;
 }
-
 
 bool millerRabinTest(unsigned int n, unsigned int l)
 {
