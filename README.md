@@ -5,6 +5,7 @@ Index:
 - Vernam cipher
 - DES (IP, FP and PC)
 - AES
+- Miller-Rabin test
 - Hash (only padding)
 
 References
