@@ -106,7 +106,7 @@ void PC1(unsigned char p[])
 	memcpy(p, res, len);
 }
 
-void main()
+void DES()
 {
 	unsigned char p[] = "abcdefgh";
 

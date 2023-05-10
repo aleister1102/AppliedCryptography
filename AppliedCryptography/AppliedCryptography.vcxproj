@@ -22,7 +22,16 @@
     <None Include="..\README.md" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AES.cpp" />
+    <ClCompile Include="DES.cpp" />
+    <ClCompile Include="Hash.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="MillerRabin.cpp" />
+    <ClCompile Include="Vernam.cpp" />
+    <ClCompile Include="Vigenere.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Header.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

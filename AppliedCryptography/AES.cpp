@@ -381,7 +381,7 @@ byte* CBCDecrypt(byte* C, byte* K)
 	return P;
 }
 
-int main()
+void AES()
 {
 	byte M[] = "Two One Nine TwoTwo One Nine Two";
 	printf("Message:\t");
@@ -406,7 +406,4 @@ int main()
 	byte* D = CBCDecrypt(E, K);
 	printf("Decrypted:\t");
 	printBlock(D);
-
-
-	return 0;
 }

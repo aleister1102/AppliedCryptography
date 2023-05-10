@@ -49,7 +49,7 @@ bool millerRabinTest(unsigned int n, unsigned int l)
 }
 
 
-void main()
+void MillerRabin()
 {
 	unsigned int n = 0, k = 0;
 	cout << "Enter n: ";

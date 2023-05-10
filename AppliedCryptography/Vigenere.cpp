@@ -28,14 +28,12 @@ string vigenere_cipher_dec(string key, string encrypted_message)
     return text;
 }
 
-int main()
+void Vigenere()
 {
-
     string m = "thiscryptosystemisnotsecure", k = "cipher", e_m ="";
     cout << "original message: " << m << endl;
     e_m = vigenere_cipher_enc(k, m);
     cout << "encrypted message: " << e_m << endl;
     m = vigenere_cipher_dec(k, e_m);
     cout << "decrypted message: " << m << endl;
-    return 0;
 }

@@ -69,7 +69,7 @@ string vernamDecrypt(string ciphertext, string key)
 	return plaintext;
 }
 
-int main()
+void Vernam()
 {
 	srand(time(NULL));
 	string p = "toanquandatquangthanh", c = "", k = "";
@@ -79,5 +79,4 @@ int main()
 		c = vernamEncrypt(p, k); cout << "ciphertext[" << i << "]:\t" << c << endl;
 		p = vernamEncrypt(c, k); cout << "plaintext[" << i << "]:\t" << p << endl << endl;
 	}
-	return 0;
 }
